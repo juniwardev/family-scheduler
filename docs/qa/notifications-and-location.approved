@@ -1,0 +1,15 @@
+# QA Approval — feat/notifications-and-location
+
+APPROVED for deploy on 2026-07-11.
+
+- QA verdict: PASS (docs/qa/notifications-and-location-report.md)
+- Re-QA of the post-QA daily-digest timezone fix: PASS (round 2 section, same report)
+- Tests: 129/129 green; typecheck clean; src/worker/channels/push.ts held at zero edits
+- Plan-review: APPROVE (rounds 1 + 2), both migrations (0004, 0005) owner-signed-off
+- Merged to main as PR #6 (c5d8c84)
+
+Deploy per docs/runbooks/deploy.md: apply migrations 0004 + 0005 to remote D1 FIRST,
+then `wrangler deploy`.
+
+Deferred (not blockers): iPhone on-device push receipt (pre-existing, backlog);
+unescaped daily-digest HTML (backlog).

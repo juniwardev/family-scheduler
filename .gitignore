@@ -1,0 +1,26 @@
+node_modules/
+dist/
+.wrangler/
+.dev.vars
+*.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+
+# Test artifacts
+test-results/
+playwright-report/
+
+# Browser-automation / QA artifacts
+.playwright-mcp/
+docs/qa/screenshots/
+
+# D1 exports from docs/runbooks/deploy.md contain REAL family data — never commit.
+backup-*.sql
+*.sql.gz

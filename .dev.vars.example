@@ -1,0 +1,14 @@
+# Copy to .dev.vars and fill in real values for local development
+# NEVER commit .dev.vars to git
+
+RESEND_API_KEY=re_placeholder
+VAPID_PRIVATE_KEY=placeholder-vapid-private-key-base64url
+
+# Local-only dev auth shim (NON-SECURITY toggle). Loaded by `wrangler dev`, never deployed.
+# SECURITY: the shim's only security gate is the loopback request hostname (localhost/127.0.0.1/[::1]);
+# this toggle just switches the shim on locally and picks the identity. Setting it as a deployed
+# secret does NOT enable any bypass — the host gate keeps the shim inert in production.
+# Do NOT add this to wrangler.toml. Unset/empty => real Access verification even locally.
+#   "owner"            -> authenticate as OWNER_EMAIL (admin)
+#   "member@test.dev"  -> authenticate as that email (non-admin/member)
+DEV_AUTH_IDENTITY="owner"

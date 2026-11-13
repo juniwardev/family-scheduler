@@ -1,0 +1,68 @@
+# QA Approval — feat/item-archive
+
+APPROVED for deploy on 2026-09-21.
+
+## Provenance (read this before treating it as a second signoff)
+
+Created by the orchestrating Claude session, not by a separate human review step. Junior
+authorized the deploy in-session (asked for the deploy commands after reading the QA summary and
+the migration hazard). This records that authorization so the runbook's gate 2 has its artifact;
+it is **not** independent evidence of a review that did not happen.
+
+## What it rests on
+
+- **QA verdict: PASS WITH NITS** — `docs/qa/item-archive-report.md`, driven in a real browser
+  against local `wrangler dev` with the dev-auth shim and real D1 (not route mocks).
+- **Plan-review verdict: APPROVE** — `docs/reviews/item-archive-review.md`, 10 rounds. Rounds 7–10
+  ran *after* implementation and found four defects the six pre-implementation rounds structurally
+  could not, because they were facts about code that did not yet exist.
+- **Gates on the deployed commit** (`96a5294`, squash of PR #26), re-run independently by this
+  session on the merged tree rather than taken from the Coder's report: typecheck clean, lint at
+  the 0-errors/2-known-warnings baseline, **389 tests / 39 files**, build succeeds, **e2e 7/7**.
+- **Sabotage checks** confirm the load-bearing guards bite: moving the scope switch out of
+  `onSaved` into the list's "+ New Item" handler fails T31 and T36 while T32 correctly stays green;
+  setting `ALL_DAY_GRACE_MS` to 24h fails exactly T5b's two rows and nothing else; restoring the
+  old footer button order fails 3 of the 4 new order cases (the 4th, read-only/`Close`-alone,
+  correctly staying green because one button has no order to violate).
+
+## ⚠ This deploy INVERTS one of the runbook's stated guarantees
+
+The runbook's core rule rests on "**reads** tolerate a missing column; **writes** do not." That is
+**false for `0007`** and this is the first change in the repo where it fails. `archived_at` appears
+in a `WHERE`, so a read against an unmigrated remote **errors** rather than degrading, taking the
+list, calendar and digest down together. No default value helps — the column is absent entirely.
+
+Rehearsed for real during implementation: `no such column: archived_at` surfaces **only in the
+Worker console**, never the browser, because no `app.onError` is registered. The browser gets a
+bare 500 *alongside* the empty-list placeholder — a placeholder with **no** error banner. On a
+phone this reads as "my data is gone", not as a failed deploy.
+
+The order is therefore not merely preferred, it is load-bearing: **migrate remote, then deploy.**
+Rollback stays safe in the other direction — old code never references the column, so a stranded
+`archived_at` is inert and needs no down-migration.
+
+## Known accepted residuals — deploying with these open, deliberately
+
+1. **"+ New Item" stays enabled in the Archived scope.** Flagged by the Coder as an unaddressed
+   deviation and confirmed by QA.
+2. **Attachment-copy-on-duplicate was never tested with a real uploaded file.** The Playwright
+   file-chooser deadlocked. QA verified the *structural* claim (no copy-from-source UI appears) but
+   **not** the DB-level exclusion. Stated honestly by QA rather than papered over. Attachment
+   duplication is split out to the backlog; it needs a new authorized endpoint.
+3. **Restore's `confirm()` may be unnecessary friction** — QA's judgement call, given the
+   navigation already required to reach an archived item. The plan documents dropping Restore's
+   confirm while keeping Archive's as the sanctioned fallback.
+4. **The archived-shape footer has no primary emphasis** — all three buttons are
+   `variant="outline"`, so `Restore` carries none, where the active shape still has `Edit` filled.
+   Declined deliberately: a visual-weight question the owner did not ask.
+
+## Deploy characteristics
+
+- **Full-stack.** Worker, API, schema, and PWA all change.
+- **One migration: `0007_item_archived.sql`** — additive, nullable
+  (`ALTER TABLE items ADD COLUMN archived_at INTEGER`), so existing rows are untouched and simply
+  get `NULL` (= not archived). It is within the runbook's additive-nullable guarantee for *data
+  safety*; it is outside its read-tolerance guarantee for *ordering*, per the section above.
+- **Auto-archive is NOT in this deploy.** Cut by the owner mid-review and banked in the plan's
+  Appendix A with its 30-day rule intact. The `0 14` daily cron is unchanged.
+- **Rollback is code-only and safe**: `npx wrangler rollback`. The added column needs no reversal.

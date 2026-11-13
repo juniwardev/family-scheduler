@@ -1,0 +1,45 @@
+name = "family-scheduler"
+main = "src/worker/index.ts"
+# Bumped 2026-06-01 -> 2026-09-21 alongside wrangler 4.136.1 / workers-types v5, so the
+# runtime we opt into matches the types we compile against. Only two flags default on in
+# that window and both are inert here: nodejs_compat + nodejs_compat_v2 (2026-08-04) —
+# src/ imports no node: builtins and uses no process/Buffer, and the bundle is
+# byte-identical at 479.49 KiB either way — and python_workers_314 (2026-09-08), which
+# applies to Python Workers only. Verified: 389 unit tests and 7 e2e specs pass on both
+# dates, including under vitest-pool-workers' older workerd 1.20241230.
+compatibility_date = "2026-09-21"
+
+# Top-level, NOT under [vars] — it was mis-nested there from 6e02992 (2026-06-29,
+# "disable preview URLs") until 2026-09-21, so wrangler bound it as an env var
+# (env.preview_urls) and the setting never applied. Preview URLs default to the
+# workers_dev setting on wrangler >= 4.44.0; workers_dev is unset here, so they
+# were live at <preview>-family-scheduler.<subdomain>.workers.dev the whole time.
+# Those hostnames differ from APP_URL, so the Access application guarding this app
+# does not necessarily cover them. Keep this at top level.
+preview_urls = false
+
+[assets]
+directory = "./dist"
+binding = "ASSETS"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "family-scheduler"
+database_id = "448567eb-6fdf-42ca-b1df-e9886e4cf80c"
+migrations_dir = "migrations"
+
+[[r2_buckets]]
+binding = "ATTACHMENTS"
+bucket_name = "family-scheduler-attachments"
+
+[triggers]
+crons = ["*/5 * * * *", "0 14 * * *"]
+
+[vars]
+ACCESS_TEAM_DOMAIN = "https://jr-quantum.cloudflareaccess.com"
+ACCESS_AUD = "210cccb537ca7b06dd2bb7e752632a0e8e32da6501472acea3b6189872999a68"
+OWNER_EMAIL = "juniwar.dev@gmail.com"
+VAPID_PUBLIC_KEY = "BKLnMdiTqoADr1jc1-a9C_QD6H7PwW-F6xonI2JfzOiQao4Tu7jVq7z0y2E4YUHwzevba9Bel-a1pYMdr3haFNw"
+VAPID_SUBJECT = "mailto:juniwar.dev@gmail.com"
+EMAIL_FROM = "Warner Family Scheduler <reminders@mail.jr-quantum.com>"
+APP_URL = "https://family-scheduler.juniwar-dev.workers.dev"

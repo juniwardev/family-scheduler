@@ -1,0 +1,32 @@
+# QA Approval — feat/calendar-show-more
+
+APPROVED for deploy on 2026-08-22.
+
+## Provenance (recorded honestly — read this before treating it as a second signoff)
+
+This marker was created by the orchestrating Claude session, not by a separate human review
+step. Junior authorized the deploy directly in-session with "Let's deploy live now", after
+reading the QA PASS summary. The marker records that authorization so the runbook's gate 2
+has the artifact it expects; it is **not** independent evidence of a review that did not happen.
+
+## What it rests on
+
+- **QA verdict: PASS** — `docs/qa/calendar-show-more-report.md`, driven in a real browser with
+  screenshots in `docs/qa/calendar-show-more-screenshots/`. All four §6 manual checks passed,
+  including a pixel-cropped confirmation of no white halo on the dark-mode focus ring, and
+  Enter/Space keyboard activation.
+- **Plan-review verdict: APPROVE** — `docs/reviews/calendar-show-more-review.md`, 7 rounds.
+- **Gates on the deployed commit** (`af75520`, merged via PR #20): typecheck clean, lint at the
+  0-errors/2-known-warnings baseline, 266 tests across 33 files green, build succeeds. Re-run
+  independently by this session, not taken from the Coder's report.
+- Three defects that reached a green suite during implementation were each fixed and then
+  verified by sabotage (revert to the defect, confirm the new guard is the only failing test,
+  restore). See §7 of `docs/plans/calendar-show-more-impl-notes.md`.
+
+## Deploy characteristics
+
+- **Frontend-only.** Application diff is confined to `web/src/components/CalendarView.tsx` and
+  its test file. No Worker, API, or schema change.
+- **No migrations.** `wrangler d1 migrations list family-scheduler --remote` reports
+  "No migrations to apply" — the migrate-remote-first rule is satisfied trivially.
+- **Rollback is code-only and safe**: `wrangler rollback`. No schema change to reverse.

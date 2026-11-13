@@ -1,0 +1,133 @@
+# QA Approval — feat/item-view-mode
+
+> **APPROVAL MARKER.** This file satisfies `/ship`'s gate. Created by Claude on 2026-08-22 at
+> Junior's explicit instruction ("create the marker"), after Junior stated the ship was approved.
+> Content was drafted by Claude from independently re-verified gate results and the QA report;
+> the approval decision is Junior's.
+
+APPROVED for deploy on 2026-08-22 by Junior Warner.
+
+## Feature
+
+Clicking an item's title in the list, or an event chip in the calendar, opens the shared item
+modal in **view** mode; Edit still opens edit mode; per-row actions restack one-per-row as
+**View / Edit / Delete**. The `?item=<id>` notification deep link now opens **view** mode
+instead of the editor.
+
+## Verdicts
+
+- **QA verdict:** **`PASS`** (`docs/qa/item-view-mode-report.md`, 10 screenshots) — reached on the
+  second pass. The first pass returned `PASS WITH NITS`; both nits were fixed and re-verified.
+  Live-verified in a real browser across desktop (Dialog) and mobile 390x844 (Sheet): the desktop
+  Dialog branch with all four dismissal paths; occurrence end times correct on a **non-first**
+  occurrence (the Aug 26 occurrence of a weekly series starting Aug 5 shows its own start/end);
+  completed-title strike-through surviving hover by computed-style check; all-day rows date-only;
+  the `?item=` deep link opening **view** mode with zero form controls; the NEW-1 sequence (close ->
+  Calendar -> back to List -> does not reopen); calendar chips Tab-reachable and activating on both
+  Enter and Space; touch targets measured at 36px with 6px spacing; smart location links live for
+  both address and meeting kinds; attachments rendering in view mode. Zero console errors, zero
+  failed network requests, zero unhandled rejections across both passes.
+- **Nits found on pass 1, both fixed and re-verified on pass 2:**
+  1. *Focus was not restored to the triggering element on close* (`document.activeElement` landed on
+     `<body>`) — a real a11y regression introduced by this feature. Fixed: `useItemModal()` captures
+     the trigger in a per-instance `useRef` at open time; `ItemModal` restores it via Radix's
+     `onCloseAutoFocus` on **both** the Dialog and Sheet branches, guarded on
+     `document.contains(trigger)` so a detached node is never focused. Re-QA verified the full
+     matrix — 4 entry points (row View, row title, row Edit, calendar chip) x 4 dismissal paths
+     (Esc, overlay, shell X, footer Close) x 2 breakpoints, all keyboard-driven — plus both guard
+     paths (direct DOM detach, and the natural View->Edit->Save refetch that replaces the trigger node).
+  2. *Dark-mode white focus-ring halo on shadcn `Button`* — pre-existing and originally deferred by
+     the plan. Fixed with one class: `ring-offset-background` on `ui/button.tsx`'s base, matching
+     what `sheet.tsx`, `dialog.tsx`, `select.tsx` and `tabs.tsx` already did. Re-QA confirmed the
+     offset is now the dark background token rather than white, spot-checked Buttons app-wide
+     outside this feature, and confirmed light mode is visually unchanged.
+- **Plan-review verdict:** `APPROVE` (`docs/reviews/item-view-mode-review.md`), reached over
+  three adversarial rounds — 18 required changes, then 10, then 1 blocking. Plan and review are
+  committed as `ae58e7b` on `feat/item-view-mode`.
+
+## Gates (re-run and verified independently, not taken on the Coder's report)
+
+- `npm run typecheck` — clean (0 errors).
+- `npm run lint` — **0 errors, 2 warnings**, both pre-existing baseline and neither in new code:
+  `src/worker/channels/push.ts:150` (untouched worker file) and `web/src/components/ItemListView.tsx`'s
+  `onItemsChange` exhaustive-deps warning, confirmed present at `HEAD` via `git show`. The plan's
+  "4 warnings" baseline was stale; 2 is the real measured ceiling.
+- `npm test` — **246 passed (246)** across 32 files (244 baseline + 2 new focus-restore tests).
+- `npm run build` — succeeds.
+- `npm run test:e2e` is a **no-op** in this repo (no `playwright.config.*` exists) and was
+  deliberately not treated as a gate — see D-OQ3. A Playwright bootstrap is filed in `docs/backlog.md`.
+
+## Verification that the new tests actually execute
+
+The plan's step 1 fixed `vitest.workspace.ts`'s include globs, which previously read
+`web/**/*.test.tsx` only — a new `web/src/lib/*.test.ts` would have been collected by **neither**
+project and would have "passed" by never running. Confirmed post-fix that all three new
+`.test.ts` files are collected and run: `rrule` (21 tests), `itemDisplay` (11), `permissions` (5).
+That is 37 tests that would otherwise have been silently inert.
+
+## Invariants confirmed in the source
+
+- **HC1 / B1** — `ItemModal.tsx:35` uses a plain per-instance `useState`. No Context, no
+  module-scoped state, no external store. The `ItemListView.tsx:48-53` comment documenting the
+  invariant is updated, not deleted.
+- **HC2** — the entire `web/src/App.tsx` diff is **one line** (`user={user}` on `<CalendarView>`).
+  The deep-link effect and its `eslint-disable` are untouched.
+- **NEW-1** — structurally intact in `App.deeplink.test.tsx`: open on boot → Escape → Calendar →
+  back to List → assert no dialog. Only the probe changed (`getByRole("dialog")` in place of an
+  `"Edit Item"` text match). The `vi.mock` factory is unchanged, as the plan's DoD required.
+- **HC3** — RRULE hardening lives only in the new `describeRecurrence`; `parseRRule` and friends
+  moved to `web/src/lib/rrule.ts` verbatim.
+
+## Correctness fix carried by this change
+
+Occurrence end times are threaded end-to-end as `occurrenceEndAt`. The worker computes
+`end_at = occurrence_at + duration` (`src/worker/routes/items.ts:77-81`), so sourcing the modal's
+end from raw `item.end_at` rendered a range **ending before it started** on any non-first
+occurrence of a series. Caught in plan review, fixed before implementation.
+
+## Scope
+
+**Base implementation** (committed, `0c1efbf`): 12 files created (`ItemDetails`, `ItemModal`,
+three `web/src/lib/` helpers, 6 test files); 8 modified (`vitest.workspace.ts`, `ItemListView`,
+`CalendarView`, `App.tsx`, `RecurrenceEditor`, `ReminderEditor`, `App.deeplink.test.tsx`,
+`docs/backlog.md`).
+
+**Re-QA fix pass** (uncommitted at time of writing): `ItemModal.tsx`, `ItemListView.tsx`,
+`CalendarView.tsx`, `ItemListView.test.tsx`, `ui/button.tsx`, `docs/backlog.md`,
+`docs/plans/item-view-mode-impl-notes.md`.
+
+> **Note for the reviewer:** `web/src/components/ui/button.tsx` is a **shared primitive used
+> app-wide**, and it is the one file in this change that reaches beyond the feature. The change is
+> a single class (`ring-offset-background`) that brings it in line with `sheet.tsx`, `dialog.tsx`,
+> `select.tsx` and `tabs.tsx`, which already had it. It was originally deferred by the plan as out
+> of scope and was pulled in to clear QA nit 2. Re-QA spot-checked Buttons outside this feature in
+> both themes and found no regression. If you would rather keep this branch strictly scoped, this
+> is the one hunk to pull out — QA's clean `PASS` would then revert to `PASS WITH NITS` on a
+> pre-existing, already-backlogged issue.
+
+- **No changes** under `src/worker/`, `migrations/`, `wrangler.toml`, or `web/src/apiClient.ts`.
+
+## Deploy prerequisites
+
+1. **No migrations in this change.** It is `web/src`-only, so the runbook's "migrate remote D1
+   **before** deploying code" rule has nothing to apply here. Confirm with
+   `wrangler d1 migrations list family-scheduler --remote` that nothing unrelated is pending
+   before deploying.
+2. **The re-QA fix pass is currently UNCOMMITTED** (the base implementation is committed at
+   `0c1efbf`). It must be committed on `feat/item-view-mode` and the branch merged to `main`
+   (prior features went via squashed PR — `#14`, `#15`, `#17`), with a clean working tree, before
+   deploy. Runbook pre-deploy gate 1.
+3. Back up remote D1 anyway, per the runbook's standing insurance rule:
+   `wrangler d1 export family-scheduler --remote --output backup-$(git rev-parse --short HEAD).sql`
+4. `npm run build && wrangler deploy`.
+5. **Deploys are manual** — merging to `main` does not deploy anything.
+
+## Post-deploy checks
+
+- Load the app on desktop **and** iPhone; open an item from a list row and from a calendar chip
+  in both light and dark theme.
+- Tap a real push notification and confirm the deep link lands in **view** mode, and that a
+  meeting-location item's "Tap to join" renders as a clickable link — that behavior is the
+  substance of D-OQ1 and is the one user-facing change that was not in the original request.
+- Unrelated items still pending from earlier deploys (see memory): eyeball email content,
+  private-list 403, daily-digest cron.

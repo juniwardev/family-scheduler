@@ -1,0 +1,17 @@
+# QA Approval — fix/push-enable-persistence
+
+APPROVED for deploy on 2026-07-11.
+
+- QA verdict: PASS (docs/qa/push-enable-persistence-report.md)
+- Live-reproduced + fixed in Chromium (Playwright): enable push → reload →
+  "Push notifications enabled." shows with no re-click; defense-in-depth
+  re-register fired (second 201). Zero defects.
+- Tests: 137/137 (129 baseline + 8 new NotificationSetup cases); typecheck clean.
+- M1 serviceWorker.ready hang mitigation verified hang-proof (DC-f).
+- Frontend-only: NotificationSetup.tsx + jsdom.setup.ts + test. No Worker/migration change.
+- Plan-review: APPROVE (rounds 1 + 2).
+
+Deploy: frontend-only, NO migration — `npm run build && wrangler deploy` (per docs/runbooks/deploy.md; the migrate-remote step is N/A here).
+
+Deferred (not a blocker): owner Safari device check (enable in Safari → fully close →
+reopen → shows enabled without re-click) — QA verified Chromium; Safari semantics need owner confirmation.

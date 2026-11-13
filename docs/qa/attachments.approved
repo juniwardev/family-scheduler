@@ -1,0 +1,17 @@
+# QA Approval — feat/attachments
+
+APPROVED for deploy on 2026-07-11.
+
+- QA verdict: PASS (docs/qa/attachments-report.md) — live-verified end-to-end against
+  emulated R2: upload (PNG/PDF/DOCX) → list → download (correct Content-Type + nosniff +
+  disposition) → delete → item-delete CASCADE (rows + R2 objects gone, 404 confirmed).
+  Validation rejects oversized/disallowed; authz via passing route tests + code read.
+- Tests: 174/174 (35 new); typecheck clean; lint 0 errors; push.ts untouched.
+- Plan-review: APPROVE (rounds 1 + 2). Post-QA: sanitizeFilename raw-control-byte nit
+  fixed (readable \x escapes; behavior-identical; suite still 174/174).
+
+## Deploy prerequisites (R2 now ENABLED + bucket CREATED 2026-07-11)
+1. R2 enabled on the account ✅; bucket `family-scheduler-attachments` created ✅.
+2. Apply migration 0006 to remote D1: `wrangler d1 migrations apply family-scheduler --remote`.
+3. `npm run build && wrangler deploy`.
+Per docs/runbooks/deploy.md (migrate remote FIRST). Additive migration — existing rows unaffected.

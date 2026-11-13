@@ -1,0 +1,12 @@
+# QA Approval — fix/digest-html-escaping
+
+APPROVED for deploy on 2026-07-11.
+
+- QA verdict: PASS (docs/qa/digest-html-escaping-report.md)
+- Escaping confirmed on the REAL send path (sendDailyDigest → composeDigestBody → sendEmail);
+  escapeHtml handles & < > " ' (& first). Plain-text body correctly left raw.
+- Tests: 139/139 (incl. 2 new escaping cases); typecheck clean; build succeeds.
+- Diff scope: only send.ts + digest-content.test.ts; push.ts untouched.
+
+Deferred (not a blocker): real-inbox HTML render — folds into the already-pending
+daily-digest cron watch. Worker-content only; no migration.

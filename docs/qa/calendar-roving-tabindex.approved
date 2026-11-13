@@ -1,0 +1,48 @@
+# QA Approval — feat/calendar-roving-tabindex
+
+APPROVED for deploy on 2026-08-22.
+
+## Provenance (read this before treating it as a second signoff)
+
+Created by the orchestrating Claude session, not by a separate human review step. Junior
+authorized the deploy in-session ("yes, same as last time", following the PR → squash-merge →
+deploy sequence used for PR #20) after reading the QA summary. This records that authorization
+so the runbook's gate 2 has its artifact; it is **not** independent evidence of a review that
+did not happen.
+
+## What it rests on
+
+- **QA verdict: PASS WITH NITS** — `docs/qa/calendar-roving-tabindex-report.md`, driven in a real
+  browser with screenshots in `docs/qa/calendar-roving-tabindex-screenshots/`. The stop-the-line
+  gate (R2 — `:focus-visible` not matching on programmatic focus, which would mean arrowing the
+  calendar with no visible focus ring while every automated test passed) was verified with
+  **genuine keyboard input** in both light and dark mode.
+- **The single nit is not a defect:** headless Chromium is inconsistent about which off-page
+  element receives focus when Tab exits the grid. Traced to Playwright's focus controller, not
+  the app, which never intercepts Tab. The load-bearing claim — Tab always leaves the grid and
+  never hops to a second chip — held in every trial.
+- **Plan-review verdict: APPROVE** — `docs/reviews/calendar-roving-tabindex-review.md`, 3 rounds.
+- **Gates on the deployed commit** (`84ace9c`, merged via PR #21): typecheck clean, lint at the
+  0-errors/2-known-warnings baseline, 300 tests across 34 files green, build succeeds. Re-run
+  independently by this session rather than taken from the Coder's report.
+- **Three sabotage checks** confirm the load-bearing guards actually bite: freezing
+  `handleGridFocus` fails C3 (plus C2/C13/C15); moving `setRememberedId` into the keydown handler
+  fails C15 alone; removing the stale-id fallback fails C11 and P15. The C15 check was re-run
+  independently by this session.
+
+## Known accepted residual — deploying with this open, deliberately
+
+**Plan R3:** Tab is a legitimate screen-reader navigation method, so a screen-reader user
+navigating by Tab loses 92 of 93 chips from that sequence. Decision 4 changes no ARIA (adding
+`role="grid"` would need row wrappers the flat `grid-cols-7` markup lacks and would alter the
+announcement on every chip), and Decision 7's discoverability hint was cut. No AT user is told
+arrow keys exist. This was argued, not overlooked — revisit if a family member ever navigates
+by screen reader or keyboard.
+
+## Deploy characteristics
+
+- **Frontend-only.** Diff is `web/src/components/CalendarView.tsx`, its test file, and the new
+  `web/src/lib/calendarFocus.ts` + tests. No Worker, API, or schema change.
+- **No migrations.** `wrangler d1 migrations list family-scheduler --remote` reports
+  "No migrations to apply".
+- **Rollback is code-only and safe**: `npx wrangler rollback`. No schema change to reverse.

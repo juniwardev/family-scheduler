@@ -1,0 +1,65 @@
+# QA Approval — fix/dst-fallback-ambiguous-time
+
+APPROVED on 2026-11-13. **Approval is not a deploy:** nothing has been merged or deployed, and
+deploying needs the owner's separate go-ahead.
+
+## Provenance (read this before treating it as a second signoff)
+
+Created by the orchestrating Claude session, not by a separate human review step. The owner asked
+in-session for the full cycle "to code, qa, to a clean approve", and this file records that the
+cycle reached it. It is **not** an authorization to deploy, and the owner has not read the QA
+report yet.
+
+## What it rests on
+
+- **QA verdict: PASS** — `docs/qa/dst-fallback-ambiguous-time-report.md`. The first verdict was
+  PASS WITH NITS; it was re-issued as PASS after both nits were dispositioned without code changes
+  (see "Residuals"). QA drove the real Worker + local D1 through the dev-auth shim with the real
+  clock in Pacific standard time, the season in which the bug shows:
+  - Nov 1 2026 01:30 LA resolves to `1793521800000` (08:30Z, the earlier instant).
+  - The day-1 early-morning occurrence appears in the November 2026 and March 2027 month views.
+  - A near-term occurrence 3 h ahead is returned.
+  - Spring-forward (Mar 14 2027 02:30 → 03:30 PDT) is unchanged.
+- **Plan-review verdict: APPROVE** — `docs/reviews/dst-fallback-ambiguous-time-review.md`, five
+  rounds. Rounds 4–5 ran after implementation and corrected the plan's sabotage predictions to the
+  observed behaviour; documentation only.
+- **Gates on `f3316c1`, re-run independently by this session** rather than taken from the Coder's
+  or QA's reports:
+  - typecheck clean.
+  - lint at the 0-errors / 2-known-warnings baseline.
+  - **418 tests / 41 files** pass (389 baseline + 29 new). This needs `NODE_EXTRA_CA_CERTS=`
+    because of a local cert-bundle problem unrelated to this change.
+  - build succeeds.
+  - AC-5 finds no `DateTime.(fromObject|local|now)(` call in `src/worker`.
+  - AC-6: the code diff is exactly `src/worker/recurrence.ts` plus the three test files.
+- **Red-proof:** with `main`'s `recurrence.ts`, the new tests give 16 red / 19 green, exactly as
+  the plan predicted. Reproduced independently by the Coder and by QA (in a throwaway worktree).
+- **Sabotage:** S1–S9 and S3b run by the Coder; S1, S4 and S9 re-run by QA. Each bites. S9 proves
+  the network guard keeps test runs from reaching the real Resend API.
+- **e2e not run:** the branch does not touch `web/src/**` (`git diff --stat main -- web` is empty),
+  so `test:e2e` is not mandatory per `CLAUDE.md`.
+
+## Residuals — accepted deliberately
+
+1. **List-row "Mark complete" on a recurring item returns 400.** Pre-existing and outside this
+   branch's diff (`ItemListView.tsx:124` sends no occurrence; `db.ts:1147` rejects it). Filed as a
+   NEW bug in `docs/backlog.md`.
+2. **The window fix changes what users see.** Early-morning recurring occurrences now appear on day 1
+   of the month view, in the daily digest's "today", and as reminders for occurrences soon after
+   creation. These were silently missing before, so this is the intended effect, not a regression.
+
+## Deploy characteristics (for whoever deploys)
+
+- **No migration.** Worker code only; `wrangler.toml` is unchanged.
+- **No data repair expected.** The owner's read-only production check (2026-11-13; plan §4.8.1)
+  found every item in America/Los_Angeles, no reminder rows in the fall-back hour, and no recurring
+  timed items before 06:00 local. Still re-run the plan's §4.8 queries (Q-0, Q-0b, Q-A, Q-B', Q-C')
+  just before deploying, and follow its decision rule.
+- **First-deploy reminders:** newly materialized occurrences that are already past are stored but
+  never sent; any due within the existing 30-minute grace window are sent on the first cron tick.
+
+## Owner go-ahead to deploy (2026-11-13)
+
+After the cycle summary, the owner replied in-session: "let's ship it". That is the explicit deploy
+authorization the provenance note above said was still missing. Deploy runs via `/ship` per plan
+§10.2 and `docs/runbooks/deploy.md`.
